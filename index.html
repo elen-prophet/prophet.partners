@@ -150,6 +150,9 @@ header{position:sticky;top:0;z-index:60;background:rgba(255,255,255,.82);backdro
 .contact .csub{font-family:var(--sans);font-size:1.06rem;color:rgba(255,255,255,.9);max-width:48ch;margin:22px auto 0;line-height:1.62}
 .cform{display:flex;flex-direction:column;gap:14px;text-align:left;margin-top:48px}
 .frow{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.cform .cchk{display:flex;gap:10px;align-items:flex-start;color:#fff;font-family:var(--sans);font-size:.98rem;cursor:pointer;text-align:left}
+.cform .cchk input{width:auto;margin:4px 0 0;padding:0;accent-color:#000}
+.cform .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .cform input,.cform select,.cform textarea{background:#fff;border:1px solid transparent;border-radius:0;padding:16px 18px;font-family:var(--sans);font-size:1rem;color:var(--black);outline:none;transition:box-shadow .2s;width:100%}
 .cform input::placeholder,.cform textarea::placeholder{color:var(--light)}
 .cform input:focus,.cform select:focus,.cform textarea:focus{box-shadow:0 0 0 3px rgba(0,0,0,.22)}
@@ -381,24 +384,32 @@ footer{background:var(--black);color:#9b9486;padding:64px 0}
         <div class="section-label fade-in">break bread</div>
         <h2 class="fade-in">Private markets run on <em>relationships.</em></h2>
         <p class="csub fade-in">Let's build one.</p>
-        <form class="cform fade-in" id="form" action="https://formspree.io/f/xdavpopa" method="POST">
+        <form class="cform fade-in" id="form" action="https://deals.prophet.partners/api/request" method="POST">
+          <input type="hidden" name="origin" value="main site">
+          <div class="hp" aria-hidden="true"><label>Website <input name="website" tabindex="-1" autocomplete="off"></label></div>
           <div class="frow">
             <input type="text" id="f-name" name="name" placeholder="Name" autocomplete="name">
             <input type="email" id="f-email" name="email" placeholder="Email" autocomplete="email" required>
           </div>
-          <select id="f-intent" name="you are">
+          <input type="text" id="f-firm" name="firm" placeholder="Firm" autocomplete="organization">
+          <select id="f-intent" name="role" required>
             <option value="">You are...</option>
-            <option>a family office</option>
-            <option>a founder or operator</option>
-            <option>a fund</option>
-            <option>something else</option>
+            <option>Fund</option>
+            <option>Syndicate</option>
+            <option>Family office</option>
+            <option>Investor</option>
+            <option>Shareholder</option>
+            <option>Broker</option>
+            <option>Something else</option>
           </select>
-          <textarea id="f-msg" name="message" placeholder="What's on your mind. Raising, access, liquidity, or just say hello." required></textarea>
+          <textarea id="f-msg" name="message" placeholder="What are you looking for? Names, sectors, check size. Or what you'd like to sell."></textarea>
+          <label class="cchk"><input type="checkbox" name="accredited" id="f-acc"> <span>I'm an accredited investor, or represent one<span id="f-accreq"></span></span></label>
+          <label class="cchk"><input type="checkbox" name="weekly"> <span>Send me the weekly deal sheet</span></label>
           <button class="submit" id="send" type="submit">send it</button>
         </form>
-        <p class="sent" id="sent">Received. A real person reads these, usually the same day.</p>
-        <p class="sent" id="formError" style="font-style:normal;font-size:1rem">Something went wrong. Please email <a href="mailto:yes@prophet.partners" style="color:#fff;border-bottom:1.5px solid #fff">yes@prophet.partners</a>.</p>
-        <div class="contact-meta">New York City<br>929-259-2077 &nbsp;&middot;&nbsp; <a href="mailto:yes@prophet.partners">yes@prophet.partners</a></div>
+        <p class="sent" id="sent">Thanks, we will be in touch.</p>
+        <p class="sent" id="formError" style="font-style:normal;font-size:1rem">Something went wrong. Please try again, or call 929-259-2077.</p>
+        <div class="contact-meta">New York City<br><a href="tel:+19292592077">929-259-2077</a></div>
       </div>
     </div>
   </section>
@@ -537,13 +548,17 @@ footer{background:var(--black);color:#9b9486;padding:64px 0}
     if(t)t.innerHTML=t.innerHTML+t.innerHTML;
   })();
 
-  // contact form -> Formspree (AJAX, keeps the inline confirmation)
+  // contact form -> deals.prophet.partners (saves to CRM, notifies Elen; keeps the inline confirmation)
   (function(){
     var form=document.getElementById("form");
     if(!form)return;
     var sent=document.getElementById("sent");
     var err=document.getElementById("formError");
     var btn=document.getElementById("send");
+    var role=document.getElementById("f-intent"), acc=document.getElementById("f-acc"), mark=document.getElementById("f-accreq");
+    var NEED=["Fund","Syndicate","Family office","Investor"];
+    function sync(){ var need=NEED.indexOf(role.value)>=0; acc.required=need; mark.textContent=need?" (required)":""; }
+    role.addEventListener("change",sync); sync();
     form.addEventListener("submit",function(e){
       e.preventDefault();
       err.style.display="none";
@@ -553,8 +568,10 @@ footer{background:var(--black);color:#9b9486;padding:64px 0}
         body:new FormData(form),
         headers:{"Accept":"application/json"}
       }).then(function(r){
-        if(r.ok){ form.style.display="none"; sent.style.display="block"; }
-        else { btn.disabled=false; btn.textContent="send it"; err.style.display="block"; }
+        return r.json().catch(function(){return {};}).then(function(j){
+          if(r.ok){ form.style.display="none"; sent.style.display="block"; }
+          else { btn.disabled=false; btn.textContent="send it"; err.textContent=j.error||"Something went wrong. Please try again, or call 929-259-2077."; err.style.display="block"; }
+        });
       }).catch(function(){
         btn.disabled=false; btn.textContent="send it"; err.style.display="block";
       });
